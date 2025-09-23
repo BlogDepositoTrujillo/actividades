@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestión de Personal</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; background:#f4f6f9; }
+    nav { display:flex; justify-content:space-between; align-items:center; background:#333; color:white; padding:10px 20px; }
+    nav ul { list-style:none; display:flex; margin:0; padding:0; }
+    nav ul li { margin:0 10px; }
+    nav ul li a, nav ul li button { color:white; text-decoration:none; background:none; border:none; cursor:pointer; font-size:16px; }
+    .container { padding:20px; }
+    .user { background:white; padding:10px; margin:10px 0; border-radius:6px; border:1px solid #ccc; display:flex; justify-content:space-between; align-items:center; }
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; }
+    .modal-content { background:white; padding:20px; border-radius:10px; width:350px; }
+    .modal-content input, .modal-content button { width:100%; margin:5px 0; padding:8px; }
+    #logoutBtn { background:#e74c3c; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; color:white; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">👥 Gestión de Personal</div>
+    <ul>
+      <li><a href="index.html">Planificador</a></li>
+      <li><a href="personal.html">Personal</a></li>
+      <li><button id="logoutBtn">Cerrar Sesión</button></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <h2 id="welcomeMsg"></h2>
+    <div id="usersContainer"></div>
+    <button id="addUserBtn">➕ Agregar Usuario</button>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="userModal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Editar Usuario</h3>
+      <input type="text" id="userName" placeholder="Nombre">
+      <input type="text" id="userRole" placeholder="Rol">
+      <button onclick="saveUser()">Guardar</button>
+      <button onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    let users = JSON.parse(localStorage.getItem("users")) || [
+      { username:"Jose", role:"admin" },
+      { username:"Natalia", role:"editor" }
+    ];
+    let editingIndex = null;
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    function renderUsers() {
+      const container = document.getElementById("usersContainer");
+      container.innerHTML = "";
+      users.forEach((u, i) => {
+        const div = document.createElement("div");
+        div.className = "user";
+        div.innerHTML = `<span>${u.username} (${u.role})</span>`;
+        if (currentUser.role === "admin") {
+          const editBtn = document.createElement("button");
+          editBtn.textContent = "Editar";
+          editBtn.onclick = () => openModal(i);
+          div.appendChild(editBtn);
+        }
+        container.appendChild(div);
+      });
+      localStorage.setItem("users", JSON.stringify(users));
+    }
+
+    function openModal(index) {
+      editingIndex = index;
+      document.getElementById("userName").value = users[index].username;
+      document.getElementById("userRole").value = users[index].role;
+      document.getElementById("userModal").style.display = "flex";
+    }
+
+    function closeModal() {
+      document.getElementById("userModal").style.display = "none";
+    }
+
+    function saveUser() {
+      users[editingIndex].username = document.getElementById("userName").value;
+      users[editingIndex].role = document.getElementById("userRole").value;
+      renderUsers();
+      closeModal();
+    }
+
+    function addUser() {
+      const name = prompt("Ingrese el nombre del nuevo usuario:");
+      if (!name) return;
+      const role = prompt("Ingrese el rol de " + name + " (admin/editor):");
+      if (!role) return;
+      users.push({ username:name, role:role });
+      renderUsers();
+    }
+
+    function logout() {
+      localStorage.removeItem("currentUser");
+      window.location.href = "login.html";
+    }
+
+    document.getElementById("logoutBtn").onclick = logout;
+    document.getElementById("welcomeMsg").textContent =
+      "Bienvenido " + currentUser.username + " (" + currentUser.role + ")";
+    renderUsers();
+
+    if (currentUser.role !== "admin") {
+      document.getElementById("addUserBtn").style.display = "none";
+    } else {
+      document.getElementById("addUserBtn").onclick = addUser;
+    }
+  </script>
+</body>
+</html>

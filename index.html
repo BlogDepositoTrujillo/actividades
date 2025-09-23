@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Planificador Semanal</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; background:#f4f6f9; }
+    nav { display:flex; justify-content:space-between; align-items:center; background:#333; color:white; padding:10px 20px; }
+    nav ul { list-style:none; display:flex; margin:0; padding:0; }
+    nav ul li { margin:0 10px; }
+    nav ul li a { color:white; text-decoration:none; }
+    .container { padding:20px; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { border:1px solid #ddd; padding:10px; vertical-align:top; }
+    th { background:#4CAF50; color:white; }
+    .activity { background:white; padding:8px; margin:5px 0; border-radius:6px; cursor:pointer; border:1px solid #ccc; }
+    .activity.done { background:#d4edda; border:1px solid #28a745; }
+    .modal { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); justify-content:center; align-items:center; }
+    .modal-content { background:white; padding:20px; border-radius:10px; width:350px; }
+    .modal-content input, .modal-content select, .modal-content button { width:100%; margin:5px 0; padding:8px; }
+    #logoutBtn { background:#e74c3c; padding:6px 12px; border:none; border-radius:5px; cursor:pointer; color:white; }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="logo">📅 Mi Agenda</div>
+    <ul>
+      <li><a href="index.html">Planificador</a></li>
+      <li><a href="personal.html">Personal</a></li>
+      <li><button id="logoutBtn">Cerrar Sesión</button></li>
+    </ul>
+  </nav>
+
+  <div class="container">
+    <h2 id="welcomeMsg"></h2>
+    <table>
+      <tr>
+        <th>Lunes</th>
+        <th>Martes</th>
+        <th>Miércoles</th>
+        <th>Jueves</th>
+        <th>Viernes</th>
+        <th>Sábado</th>
+        <th>Domingo</th>
+      </tr>
+      <tr>
+        <td id="lunes"></td>
+        <td id="martes"></td>
+        <td id="miercoles"></td>
+        <td id="jueves"></td>
+        <td id="viernes"></td>
+        <td id="sabado"></td>
+        <td id="domingo"></td>
+      </tr>
+    </table>
+    <button id="newActivityBtn">➕ Nueva Actividad</button>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal" id="activityModal">
+    <div class="modal-content">
+      <h3 id="modalTitle">Nueva Actividad</h3>
+      <input type="text" id="activityText" placeholder="Descripción de la actividad">
+      <select id="daySelect">
+        <option value="lunes">Lunes</option>
+        <option value="martes">Martes</option>
+        <option value="miercoles">Miércoles</option>
+        <option value="jueves">Jueves</option>
+        <option value="viernes">Viernes</option>
+        <option value="sabado">Sábado</option>
+        <option value="domingo">Domingo</option>
+      </select>
+      <select id="assignedUser"></select>
+      <button onclick="saveActivity()">Guardar</button>
+      <button onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <script>
+    let activities = JSON.parse(localStorage.getItem("activities")) || [];
+    let editingIndex = null;
+    const users = JSON.parse(localStorage.getItem("users")) || [
+      { username:"Jose", role:"admin" },
+      { username:"Natalia", role:"editor" }
+    ];
+    const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+
+    // Mostrar usuarios disponibles para asignar
+    function renderUsers() {
+      const select = document.getElementById("assignedUser");
+      select.innerHTML = "";
+      users.forEach(u => {
+        const option = document.createElement("option");
+        option.value = u.username;
+        option.textContent = u.username + " ("+u.role+")";
+        select.appendChild(option);
+      });
+    }
+
+    // Renderizar actividades en la tabla
+    function renderActivities() {
+      ["lunes","martes","miercoles","jueves","viernes","sabado","domingo"].forEach(d=>{
+        document.getElementById(d).innerHTML="";
+      });
+
+      activities.forEach((a, i) => {
+        const div = document.createElement("div");
+        div.className = "activity " + (a.done ? "done" : "");
+        div.textContent = a.text + " [" + a.assigned + "]";
+        div.onclick = () => editActivity(i);
+        document.getElementById(a.day).appendChild(div);
+      });
+      localStorage.setItem("activities", JSON.stringify(activities));
+    }
+
+    // Abrir modal
+    function openModal(edit=false, index=null) {
+      document.getElementById("activityModal").style.display = "flex";
+      if (edit) {
+        editingIndex = index;
+        const act = activities[index];
+        document.getElementById("activityText").value = act.text;
+        document.getElementById("daySelect").value = act.day;
+        document.getElementById("assignedUser").value = act.assigned;
+        document.getElementById("modalTitle").textContent = "Editar Actividad";
+      } else {
+        editingIndex = null;
+        document.getElementById("activityText").value = "";
+        document.getElementById("modalTitle").textContent = "Nueva Actividad";
+      }
+    }
+
+    function closeModal() {
+      document.getElementById("activityModal").style.display = "none";
+    }
+
+    // Guardar actividad
+    function saveActivity() {
+      const text = document.getElementById("activityText").value;
+      const day = document.getElementById("daySelect").value;
+      const assigned = document.getElementById("assignedUser").value;
+
+      if (!text) {
+        alert("La actividad no puede estar vacía.");
+        return;
+      }
+
+      if (editingIndex !== null) {
+        activities[editingIndex] = { text, day, assigned, done:false };
+      } else {
+        activities.push({ text, day, assigned, done:false });
+
+        // 🔔 Notificación para Natalia si se le asigna algo
+        if (assigned === "Natalia") {
+          let notifications = JSON.parse(localStorage.getItem("notifications")) || {};
+          if (!notifications["Natalia"]) notifications["Natalia"] = [];
+          notifications["Natalia"].push("Nueva actividad: " + text + " ("+day+")");
+          localStorage.setItem("notifications", JSON.stringify(notifications));
+        }
+      }
+
+      renderActivities();
+      closeModal();
+    }
+
+    // Editar o marcar como finalizada
+    function editActivity(i) {
+      const act = activities[i];
+      
+      if (currentUser.role === "admin") {
+        openModal(true, i);
+      } else if (currentUser.role === "editor") {
+        if (currentUser.username === act.assigned) {
+          if (confirm("¿Quieres marcar esta actividad como finalizada?")) {
+            activities[i].done = true;
+            renderActivities();
+          }
+        } else {
+          alert("No tienes permiso para modificar esta actividad.");
+        }
+      }
+    }
+
+    // Revisar notificaciones al entrar
+    function checkNotifications() {
+      let notifications = JSON.parse(localStorage.getItem("notifications")) || {};
+      if (notifications[currentUser.username] && notifications[currentUser.username].length > 0) {
+        alert("🔔 Tienes nuevas actividades:\n\n" + notifications[currentUser.username].join("\n"));
+        notifications[currentUser.username] = [];
+        localStorage.setItem("notifications", JSON.stringify(notifications));
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem("currentUser");
+      window.location.href = "login.html";
+    }
+
+    // Inicialización
+    document.getElementById("logoutBtn").onclick = logout;
+    document.getElementById("newActivityBtn").onclick = () => {
+      if (currentUser.role === "admin") {
+        openModal();
+      } else {
+        alert("Solo el administrador puede crear actividades.");
+      }
+    };
+    document.getElementById("welcomeMsg").textContent = 
+      "Bienvenido " + currentUser.username + " (" + currentUser.role + ")";
+    renderUsers();
+    renderActivities();
+    checkNotifications();
+  </script>
+</body>
+</html>
